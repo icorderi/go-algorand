@@ -336,7 +336,7 @@ func TestAccountDBInMemoryAcct(t *testing.T) {
 	partitiontest.PartitionTest(t)
 
 	proto := config.Consensus[protocol.ConsensusCurrentVersion]
-	type testfunc func(basics.Address) ([]ledgercore.StateDelta, int, int)
+	type testfunc func(basics.Address) (stateDeltas []ledgercore.StateDelta, numAcctDeltas int, numResDeltas int)
 	var tests = []testfunc{
 		func(addr basics.Address) ([]ledgercore.StateDelta, int, int) {
 			const numRounds = 4

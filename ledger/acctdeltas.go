@@ -466,9 +466,11 @@ func (a *compactAccountDeltas) accountsLoadOld(tx *sql.Tx) (err error) {
 	defer func() {
 		a.misses = nil
 	}()
+	var rowid int64
+	var acctDataBuf []byte
 	for _, idx := range a.misses {
 		addr := a.deltas[idx].address
-		rowid, acctDataBuf, err := arw.LookupAccountDataByAddress(addr)
+		rowid, acctDataBuf, err = arw.LookupAccountDataByAddress(addr)
 		switch err {
 		case nil:
 			if len(acctDataBuf) > 0 {
