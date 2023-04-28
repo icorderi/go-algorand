@@ -133,7 +133,7 @@ type ledgerTracker interface {
 // ledgerForTracker defines the part of the ledger that a tracker can
 // access.  This is particularly useful for testing trackers in isolation.
 type ledgerForTracker interface {
-	trackerDB() trackerdb.TrackerStore
+	trackerDB() trackerdb.Store
 	blockDB() db.Pair
 	trackerLog() logging.Logger
 	trackerEvalVerified(bookkeeping.Block, eval.LedgerForEvaluator) (ledgercore.StateDelta, error)
@@ -173,7 +173,7 @@ type trackerRegistry struct {
 	// cached to avoid SQL queries.
 	dbRound basics.Round
 
-	dbs trackerdb.TrackerStore
+	dbs trackerdb.Store
 	log logging.Logger
 
 	// the synchronous mode that would be used for the account database.
@@ -551,7 +551,7 @@ func (tr *trackerRegistry) commitRound(dcc *deferredCommitContext) error {
 	start := time.Now()
 	ledgerCommitroundCount.Inc(nil)
 	err := tr.dbs.Transaction(func(ctx context.Context, tx trackerdb.TransactionScope) (err error) {
-		arw, err := tx.MakeAccountsReaderWriter()
+		aw, err := tx.MakeAccountsWriter()
 		if err != nil {
 			return err
 		}
@@ -563,7 +563,7 @@ func (tr *trackerRegistry) commitRound(dcc *deferredCommitContext) error {
 			}
 		}
 
-		return arw.UpdateAccountsRound(dbRound + basics.Round(offset))
+		return aw.UpdateAccountsRound(dbRound + basics.Round(offset))
 	})
 	ledgerCommitroundMicros.AddMicrosecondsSince(start, nil)
 

@@ -53,7 +53,7 @@ var testPoolAddr = basics.Address{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 var testSinkAddr = basics.Address{0x2c, 0x2a, 0x6c, 0xe9, 0xa9, 0xa7, 0xc2, 0x8c, 0x22, 0x95, 0xfd, 0x32, 0x4f, 0x77, 0xa5, 0x4, 0x8b, 0x42, 0xc2, 0xb7, 0xa8, 0x54, 0x84, 0xb6, 0x80, 0xb1, 0xe1, 0x3d, 0x59, 0x9b, 0xeb, 0x36}
 
 type mockLedgerForTracker struct {
-	dbs              trackerdb.TrackerStore
+	dbs              trackerdb.Store
 	blocks           []blockEntry
 	deltas           []ledgercore.StateDelta
 	log              logging.Logger
@@ -241,7 +241,7 @@ func (ml *mockLedgerForTracker) BlockHdr(rnd basics.Round) (bookkeeping.BlockHea
 	return ml.blocks[int(rnd)].block.BlockHeader, nil
 }
 
-func (ml *mockLedgerForTracker) trackerDB() trackerdb.TrackerStore {
+func (ml *mockLedgerForTracker) trackerDB() trackerdb.Store {
 	return ml.dbs
 }
 
@@ -285,13 +285,13 @@ func (au *accountUpdates) allBalances(rnd basics.Round) (bals map[basics.Address
 		return
 	}
 
-	err = au.dbs.Transaction(func(ctx context.Context, tx trackerdb.TransactionScope) error {
+	err = au.dbs.Snapshot(func(ctx context.Context, tx trackerdb.SnapshotScope) error {
 		var err0 error
-		arw, err := tx.MakeAccountsReaderWriter()
+		ar, err := tx.MakeAccountsReader()
 		if err != nil {
 			return err
 		}
-		bals, err0 = arw.Testing().AccountsAllTest()
+		bals, err0 = ar.Testing().AccountsAllTest()
 		return err0
 	})
 	if err != nil {
@@ -2182,7 +2182,7 @@ func TestAcctUpdatesResources(t *testing.T) {
 				err := au.prepareCommit(dcc)
 				require.NoError(t, err)
 				err = ml.trackers.dbs.Transaction(func(ctx context.Context, tx trackerdb.TransactionScope) (err error) {
-					arw, err := tx.MakeAccountsReaderWriter()
+					aw, err := tx.MakeAccountsWriter()
 					if err != nil {
 						return err
 					}
@@ -2191,7 +2191,7 @@ func TestAcctUpdatesResources(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					err = arw.UpdateAccountsRound(newBase)
+					err = aw.UpdateAccountsRound(newBase)
 					return err
 				})
 				require.NoError(t, err)
@@ -2469,7 +2469,7 @@ func auCommitSync(t *testing.T, rnd basics.Round, au *accountUpdates, ml *mockLe
 			err := au.prepareCommit(dcc)
 			require.NoError(t, err)
 			err = ml.trackers.dbs.Transaction(func(ctx context.Context, tx trackerdb.TransactionScope) (err error) {
-				arw, err := tx.MakeAccountsReaderWriter()
+				aw, err := tx.MakeAccountsWriter()
 				if err != nil {
 					return err
 				}
@@ -2478,7 +2478,7 @@ func auCommitSync(t *testing.T, rnd basics.Round, au *accountUpdates, ml *mockLe
 				if err != nil {
 					return err
 				}
-				err = arw.UpdateAccountsRound(newBase)
+				err = aw.UpdateAccountsRound(newBase)
 				return err
 			})
 			require.NoError(t, err)
