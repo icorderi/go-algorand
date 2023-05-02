@@ -310,20 +310,20 @@ func MakeFull(log logging.Logger, rootDir string, cfg config.Local, phonebookAdd
 
 	node.oldKeyDeletionNotify = make(chan struct{}, 1)
 
-	catchpointCatchupState, err := node.ledger.GetCatchpointCatchupState(context.Background())
-	if err != nil {
-		log.Errorf("unable to determine catchpoint catchup state: %v", err)
-		return nil, err
-	}
-	if catchpointCatchupState != ledger.CatchpointCatchupStateInactive {
-		accessor := ledger.MakeCatchpointCatchupAccessor(node.ledger.Ledger, node.log)
-		node.catchpointCatchupService, err = catchup.MakeResumedCatchpointCatchupService(context.Background(), node, node.log, node.net, accessor, node.config)
-		if err != nil {
-			log.Errorf("unable to create catchpoint catchup service: %v", err)
-			return nil, err
-		}
-		node.log.Infof("resuming catchpoint catchup from state %d", catchpointCatchupState)
-	}
+	// catchpointCatchupState, err := node.ledger.GetCatchpointCatchupState(context.Background())
+	// if err != nil {
+	// 	log.Errorf("unable to determine catchpoint catchup state: %v", err)
+	// 	return nil, err
+	// }
+	// if catchpointCatchupState != ledger.CatchpointCatchupStateInactive {
+	// 	accessor := ledger.MakeCatchpointCatchupAccessor(node.ledger.Ledger, node.log)
+	// 	node.catchpointCatchupService, err = catchup.MakeResumedCatchpointCatchupService(context.Background(), node, node.log, node.net, accessor, node.config)
+	// 	if err != nil {
+	// 		log.Errorf("unable to create catchpoint catchup service: %v", err)
+	// 		return nil, err
+	// 	}
+	// 	node.log.Infof("resuming catchpoint catchup from state %d", catchpointCatchupState)
+	// }
 
 	node.tracer = messagetracer.NewTracer(log).Init(cfg)
 	gossip.SetTrace(agreementParameters.Network, node.tracer)

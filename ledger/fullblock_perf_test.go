@@ -94,6 +94,7 @@ func setupEnv(b *testing.B, numAccts int) (bc *benchConfig) {
 	cfg.MaxAcctLookback = uint64(b.N) // prevent committing blocks into DB since we benchmark validation
 	cfg.Archival = true
 	cfg.MaxAcctLookback = uint64(b.N) // prevent committing blocks into DB since we benchmark validation
+	cfg.StorageEngine = "pebbledb"
 	l0, err := OpenLedger(logger, dbPrefix, inMem, genesisInitState, cfg)
 	require.NoError(b, err)
 
@@ -101,6 +102,7 @@ func setupEnv(b *testing.B, numAccts int) (bc *benchConfig) {
 	inMem = false
 	cfg.Archival = false
 	cfg.MaxAcctLookback = uint64(b.N) // prevent committing blocks into DB since we benchmark validation
+	cfg.StorageEngine = "pebbledb"
 	dbName = fmt.Sprintf("%s.%d.2", name, crypto.RandUint64())
 	dbPrefix = filepath.Join(dbTempDir, dbName)
 	l1, err := OpenLedger(logger, dbPrefix, inMem, genesisInitState, cfg)
