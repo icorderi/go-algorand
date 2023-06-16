@@ -146,7 +146,7 @@ func Open(dbdir string, inMem bool, proto config.ConsensusParams, log logging.Lo
 	opts.Experimental.ReadSamplingMultiplier = -1
 
 	// The target file size for the level.
-	opts.Levels[0].TargetFileSize = 8 * 1024 * 1024 // default: 4 MB
+	opts.Levels[0].TargetFileSize = 2 * 1024 * 1024 // default: 4 MB
 
 	// configure the levels
 	for i := 0; i < len(opts.Levels); i++ {
@@ -186,7 +186,7 @@ func Open(dbdir string, inMem bool, proto config.ConsensusParams, log logging.Lo
 
 		if i > 0 {
 			// The target file size for the level.
-			l.TargetFileSize = opts.Levels[i-1].TargetFileSize * 2
+			l.TargetFileSize = opts.Levels[i-1].TargetFileSize
 		}
 	}
 
