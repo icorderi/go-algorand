@@ -53,7 +53,7 @@ type trackerStore struct {
 
 // Open opens a Pebble db database
 func Open(dbdir string, inMem bool, proto config.ConsensusParams, log logging.Logger) (trackerdb.Store, error) {
-	cache := 1024 // this divided by 2 and by memTableLimit = 1GB /(2 * 16) = 32MB per memtable
+	cache := 128 // this divided by 2 and by memTableLimit = 1GB /(2 * 16) = 32MB per memtable
 	handles := 1000
 
 	// Ensure we have some minimal caching and file guarantees
@@ -69,7 +69,7 @@ func Open(dbdir string, inMem bool, proto config.ConsensusParams, log logging.Lo
 	// Taken from https://github.com/cockroachdb/pebble/blob/master/open.go#L38
 	maxMemTableSize := 4<<30 - 1 // Capped by 4 GB
 
-	memTableLimit := 16 // default: 2
+	memTableLimit := 8 // default: 2
 	memTableSize := cache * 1024 * 1024 / 2 / memTableLimit
 	if memTableSize > maxMemTableSize {
 		memTableSize = maxMemTableSize
@@ -113,21 +113,21 @@ func Open(dbdir string, inMem bool, proto config.ConsensusParams, log logging.Lo
 		//
 		// The default value is 0, i.e. no background syncing. This matches the
 		// default behaviour in RocksDB.
-		WALBytesPerSync: 512 * 1024, // default: 0
+		WALBytesPerSync: 0, // default: 0
 
 		// The default compaction concurrency(1 thread),
 		// Here use all available CPUs for faster compaction.
 		MaxConcurrentCompactions: func() int { return runtime.NumCPU() }, // default: 1
 
 		// The count of L0 files necessary to trigger an L0 compaction.
-		L0CompactionFileThreshold: 10, // default: 500
+		L0CompactionFileThreshold: 50, // default: 500
 
 		// The amount of L0 read-amplification necessary to trigger an L0 compaction
 		L0CompactionThreshold: 4, // default: 4
 
 		// Hard limit on L0 read-amplification, computed as the number of L0
 		// sublevels. Writes are stopped when this threshold is reached.
-		L0StopWritesThreshold: 24, // default: 12
+		L0StopWritesThreshold: 12, // default: 12
 
 		// The maximum number of bytes for LBase. The base level is the level which
 		// L0 is compacted into. The base level is determined dynamically based on
@@ -152,7 +152,7 @@ func Open(dbdir string, inMem bool, proto config.ConsensusParams, log logging.Lo
 	for i := 0; i < len(opts.Levels); i++ {
 		l := &opts.Levels[i]
 		// BlockSize is the target uncompressed size in bytes of each table block.
-		l.BlockSize = 8 * 1024 // default: 4 KB
+		l.BlockSize = 4 * 1024 // default: 4 KB
 
 		// IndexBlockSize is the target uncompressed size in bytes of each index
 		// block. When the index block size is larger than this target, two-level
