@@ -91,7 +91,8 @@ func NewRouter(logger logging.Logger, node APINodeInterface, shutdown <-chan str
 		middlewares.MakeConnectionLimiter(numConnectionsLimit),
 		middleware.RemoveTrailingSlash())
 	e.Use(
-		middlewares.MakeLogger(logger),
+		// Note: this is causing pingpong traffic to stall around block production/eval
+		// middlewares.MakeLogger(logger),
 		middlewares.MakeCORS(TokenHeader),
 		middleware.BodyLimit(maxRequestBodyBytes),
 	)
