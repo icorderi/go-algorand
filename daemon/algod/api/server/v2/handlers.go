@@ -905,15 +905,8 @@ func decodeTxGroup(body io.Reader, maxTxGroupSize int) ([]transactions.SignedTxn
 // (POST /v2/transactions)
 func (v2 *Handlers) RawTransaction(ctx echo.Context) error {
 	handlerRawTransactionCount.Inc(nil)
-	stat, err := v2.Node.Status()
-	if err != nil {
-		return internalError(ctx, err, errFailedRetrievingNodeStatus, v2.Log)
-	}
-	if stat.Catchpoint != "" {
-		// node is currently catching up to the requested catchpoint.
-		return serviceUnavailable(ctx, fmt.Errorf("RawTransaction failed as the node was catchpoint catchuping"), errOperationNotAvailableDuringCatchup, v2.Log)
-	}
-	proto := config.Consensus[stat.LastVersion]
+	// Note: this is not entirely correct since you could be running against a node that hasnt caught up
+	proto := config.Consensus[protocol.ConsensusCurrentVersion]
 
 	txgroup, err := decodeTxGroup(ctx.Request().Body, proto.MaxTxGroupSize)
 	if err != nil {
