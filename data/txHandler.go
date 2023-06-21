@@ -603,6 +603,8 @@ func (handler *TxHandler) dedupCanonical(ntx int, unverifiedTxGroup []transactio
 //  - transactions are checked for duplicates
 
 func (handler *TxHandler) processIncomingTxn(rawmsg network.IncomingMessage) network.OutgoingMessage {
+	txhandlerTransactionsReceived.Inc(nil)
+
 	var msgKey *crypto.Digest
 	var isDup bool
 	if handler.msgCache != nil {
@@ -784,6 +786,8 @@ func (handler *TxHandler) processDecoded(unverifiedTxGroup []transactions.Signed
 }
 
 func (handler *TxHandler) LocalTransaction(txgroup []transactions.SignedTxn) error {
+	txhandlerLocalTransactionsReceived.Inc(nil)
+
 	select {
 	case handler.prefetcher <- &txBacklogMsg{
 		rawmsg:                nil,
@@ -820,3 +824,6 @@ func (handler *solicitedTxHandler) Handle(txgroup []transactions.SignedTxn) erro
 	}
 	return nil
 }
+
+var txhandlerTransactionsReceived = metrics.NewCounter("txhandler_tx_received", "calls")
+var txhandlerLocalTransactionsReceived = metrics.NewCounter("txhandler_tx_received_local", "calls")
