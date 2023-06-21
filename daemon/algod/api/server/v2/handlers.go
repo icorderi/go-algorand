@@ -22,12 +22,14 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/algorand/go-algorand/ledger/eval"
 	"io"
 	"math"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/algorand/go-algorand/ledger/eval"
+	"github.com/algorand/go-algorand/util/metrics"
 
 	"github.com/labstack/echo/v4"
 
@@ -902,6 +904,7 @@ func decodeTxGroup(body io.Reader, maxTxGroupSize int) ([]transactions.SignedTxn
 // RawTransaction broadcasts a raw transaction to the network.
 // (POST /v2/transactions)
 func (v2 *Handlers) RawTransaction(ctx echo.Context) error {
+	handlerRawTransactionCount.Inc(nil)
 	stat, err := v2.Node.Status()
 	if err != nil {
 		return internalError(ctx, err, errFailedRetrievingNodeStatus, v2.Log)
@@ -1794,3 +1797,5 @@ func (v2 *Handlers) SetBlockTimeStampOffset(ctx echo.Context, offset uint64) err
 	}
 	return ctx.NoContent(http.StatusOK)
 }
+
+var handlerRawTransactionCount = metrics.NewCounter("handler_raw_tx_received", "calls")
