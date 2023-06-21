@@ -227,7 +227,7 @@ func (handler *TxHandler) Start() {
 	handler.backlogWg.Add(2)
 	go handler.backlogWorker()
 	go handler.backlogGaugeThread()
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 512; i++ {
 		go handler.prefetcherWorker()
 	}
 	handler.streamVerifier.Start(handler.ctx)
