@@ -50,12 +50,12 @@ const (
 
 // baseAccountsPendingAccountsBufferSize defines the size of the base account pending accounts buffer size.
 // At the beginning of a new round, the entries from this buffer are being flushed into the base accounts map.
-const baseAccountsPendingAccountsBufferSize = 100000
+const baseAccountsPendingAccountsBufferSize = 100
 
 // baseAccountsPendingAccountsWarnThreshold defines the threshold at which the lruAccounts would generate a warning
 // after we've surpassed a given pending account size. The warning is being generated when the pending accounts data
 // is being flushed into the main base account cache.
-const baseAccountsPendingAccountsWarnThreshold = 85000
+const baseAccountsPendingAccountsWarnThreshold = 85
 
 // baseResourcesPendingAccountsBufferSize defines the size of the base resources pending accounts buffer size.
 // At the beginning of a new round, the entries from this buffer are being flushed into the base resources map.

@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // net/http/pprof is for registering the pprof URLs with the web server, so http://localhost:8080/debug/pprof/ works.
@@ -76,35 +76,39 @@ type Server struct {
 
 // Initialize creates a Node instance with applicable network services
 func (s *Server) Initialize(cfg config.Local, phonebookAddresses []string, genesisText string) error {
+	var err error
+
 	// set up node
 	s.log = logging.Base()
+	s.log.SetLevel(logging.Level(0)) // panic ONLY
+	s.log.SetOutput(ioutil.Discard)
 
 	lib.GenesisJSONText = genesisText
 
-	liveLog := filepath.Join(s.RootPath, "node.log")
-	archive := filepath.Join(s.RootPath, cfg.LogArchiveName)
-	var maxLogAge time.Duration
-	var err error
-	if cfg.LogArchiveMaxAge != "" {
-		maxLogAge, err = time.ParseDuration(cfg.LogArchiveMaxAge)
-		if err != nil {
-			s.log.Fatalf("invalid config LogArchiveMaxAge: %s", err)
-			maxLogAge = 0
-		}
-	}
+	// liveLog := filepath.Join(s.RootPath, "node.log")
+	// archive := filepath.Join(s.RootPath, cfg.LogArchiveName)
+	// var maxLogAge time.Duration
+	// var err error
+	// if cfg.LogArchiveMaxAge != "" {
+	// 	maxLogAge, err = time.ParseDuration(cfg.LogArchiveMaxAge)
+	// 	if err != nil {
+	// 		s.log.Fatalf("invalid config LogArchiveMaxAge: %s", err)
+	// 		maxLogAge = 0
+	// 	}
+	// }
 
-	var logWriter io.Writer
-	if cfg.LogSizeLimit > 0 {
-		fmt.Println("Logging to: ", liveLog)
-		logWriter = logging.MakeCyclicFileWriter(liveLog, archive, cfg.LogSizeLimit, maxLogAge)
-	} else {
-		fmt.Println("Logging to: stdout")
-		logWriter = os.Stdout
-	}
-	s.log.SetOutput(logWriter)
-	s.log.SetJSONFormatter()
-	s.log.SetLevel(logging.Level(cfg.BaseLoggerDebugLevel))
-	setupDeadlockLogger()
+	// var logWriter io.Writer
+	// if cfg.LogSizeLimit > 0 {
+	// 	fmt.Println("Logging to: ", liveLog)
+	// 	logWriter = logging.MakeCyclicFileWriter(liveLog, archive, cfg.LogSizeLimit, maxLogAge)
+	// } else {
+	// 	fmt.Println("Logging to: stdout")
+	// 	logWriter = os.Stdout
+	// }
+	// s.log.SetOutput(logWriter)
+	// s.log.SetJSONFormatter()
+	// s.log.SetLevel(logging.Level(cfg.BaseLoggerDebugLevel))
+	// setupDeadlockLogger()
 
 	// Check some config parameters.
 	if cfg.RestConnectionsSoftLimit > cfg.RestConnectionsHardLimit {

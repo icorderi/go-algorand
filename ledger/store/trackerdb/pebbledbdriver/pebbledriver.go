@@ -69,7 +69,7 @@ func Open(dbdir string, inMem bool, proto config.ConsensusParams, log logging.Lo
 	// Taken from https://github.com/cockroachdb/pebble/blob/master/open.go#L38
 	maxMemTableSize := 4<<30 - 1 // Capped by 4 GB
 
-	memTableLimit := 8 // default: 2
+	memTableLimit := 2 // default: 2
 	memTableSize := cache * 1024 * 1024 / 2 / memTableLimit
 	if memTableSize > maxMemTableSize {
 		memTableSize = maxMemTableSize
@@ -120,7 +120,7 @@ func Open(dbdir string, inMem bool, proto config.ConsensusParams, log logging.Lo
 		MaxConcurrentCompactions: func() int { return runtime.NumCPU() }, // default: 1
 
 		// The count of L0 files necessary to trigger an L0 compaction.
-		L0CompactionFileThreshold: 50, // default: 500
+		L0CompactionFileThreshold: 500, // default: 500
 
 		// The amount of L0 read-amplification necessary to trigger an L0 compaction
 		L0CompactionThreshold: 4, // default: 4
@@ -182,7 +182,7 @@ func Open(dbdir string, inMem bool, proto config.ConsensusParams, log logging.Lo
 		l.FilterType = pebble.TableFilter
 
 		// Compression defines the per-block compression to use.
-		l.Compression = pebble.NoCompression // default: SnappyCompression
+		l.Compression = pebble.SnappyCompression // default: SnappyCompression
 
 		if i > 0 {
 			// The target file size for the level.

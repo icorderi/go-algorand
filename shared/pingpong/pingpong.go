@@ -44,7 +44,6 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/libgoal"
-	"github.com/algorand/go-algorand/protocol"
 )
 
 // CreatablesInfo has information about created assets, apps and opting in
@@ -219,66 +218,69 @@ func (pps *WorkerState) PrepareAccounts(ac *libgoal.Client) (err error) {
 
 // determine the min balance per participant account
 func computeAccountMinBalance(client *libgoal.Client, cfg PpConfig) (fundingRequiredBalance uint64, runningRequiredBalance uint64, err error) {
-	proto, err := getProto(client)
-	if err != nil {
-		return
-	}
+	// proto, err := getProto(client)
+	// if err != nil {
+	// 	return
+	// }
 
-	minActiveAccountBalance := proto.MinBalance
+	// minActiveAccountBalance := proto.MinBalance
 
-	var fee uint64
-	if cfg.MaxFee != 0 {
-		fee = cfg.MaxFee
-	} else {
-		// follow the same logic as constructTxn
-		fee, err = client.SuggestedFee()
-		if err != nil {
-			return
-		}
-		fee *= uint64(cfg.GroupSize)
-	}
+	// var fee uint64
+	// if cfg.MaxFee != 0 {
+	// 	fee = cfg.MaxFee
+	// } else {
+	// 	// follow the same logic as constructTxn
+	// 	fee, err = client.SuggestedFee()
+	// 	if err != nil {
+	// 		return
+	// 	}
+	// 	fee *= uint64(cfg.GroupSize)
+	// }
 
-	fundingRequiredBalance = minActiveAccountBalance
-	runningRequiredBalance = minActiveAccountBalance
+	// fundingRequiredBalance = minActiveAccountBalance
+	// runningRequiredBalance = minActiveAccountBalance
 
-	// add cost of assets
-	if cfg.NumAsset > 0 {
-		assetCost := minActiveAccountBalance*uint64(cfg.NumAsset)*uint64(cfg.NumPartAccounts) + // assets*accounts
-			(fee)*uint64(cfg.NumAsset) + // asset creations
-			(fee)*uint64(cfg.NumAsset)*uint64(cfg.NumPartAccounts) + // asset opt-ins
-			(fee)*uint64(cfg.NumAsset)*uint64(cfg.NumPartAccounts) // asset distributions
-		fundingRequiredBalance += assetCost
-		runningRequiredBalance += assetCost
-	}
-	if cfg.NumApp > 0 {
-		maxAppsCreated := proto.MaxAppsCreated
-		maxAppsOptedIn := proto.MaxAppsOptedIn
-		// TODO : given that we've added unlimited app support, we should revise this
-		// code so that we'll have control on how many app/account we want to create.
-		// for now, I'm going to keep the previous max values until we have refactored this code.
-		if maxAppsCreated == 0 {
-			maxAppsCreated = config.Consensus[protocol.ConsensusV30].MaxAppsCreated
-		}
-		if maxAppsOptedIn == 0 {
-			maxAppsOptedIn = config.Consensus[protocol.ConsensusV30].MaxAppsOptedIn
-		}
+	// // add cost of assets
+	// if cfg.NumAsset > 0 {
+	// 	assetCost := minActiveAccountBalance*uint64(cfg.NumAsset)*uint64(cfg.NumPartAccounts) + // assets*accounts
+	// 		(fee)*uint64(cfg.NumAsset) + // asset creations
+	// 		(fee)*uint64(cfg.NumAsset)*uint64(cfg.NumPartAccounts) + // asset opt-ins
+	// 		(fee)*uint64(cfg.NumAsset)*uint64(cfg.NumPartAccounts) // asset distributions
+	// 	fundingRequiredBalance += assetCost
+	// 	runningRequiredBalance += assetCost
+	// }
+	// if cfg.NumApp > 0 {
+	// 	maxAppsCreated := proto.MaxAppsCreated
+	// 	maxAppsOptedIn := proto.MaxAppsOptedIn
+	// 	// TODO : given that we've added unlimited app support, we should revise this
+	// 	// code so that we'll have control on how many app/account we want to create.
+	// 	// for now, I'm going to keep the previous max values until we have refactored this code.
+	// 	if maxAppsCreated == 0 {
+	// 		maxAppsCreated = config.Consensus[protocol.ConsensusV30].MaxAppsCreated
+	// 	}
+	// 	if maxAppsOptedIn == 0 {
+	// 		maxAppsOptedIn = config.Consensus[protocol.ConsensusV30].MaxAppsOptedIn
+	// 	}
 
-		creationCost := uint64(cfg.NumApp) * proto.AppFlatParamsMinBalance * uint64(maxAppsCreated)
-		optInCost := uint64(cfg.NumApp) * proto.AppFlatOptInMinBalance * uint64(maxAppsOptedIn)
-		maxGlobalSchema := basics.StateSchema{NumUint: proto.MaxGlobalSchemaEntries, NumByteSlice: proto.MaxGlobalSchemaEntries}
-		maxLocalSchema := basics.StateSchema{NumUint: proto.MaxLocalSchemaEntries, NumByteSlice: proto.MaxLocalSchemaEntries}
-		schemaCost := uint64(cfg.NumApp) * (maxGlobalSchema.MinBalance(&proto).Raw*uint64(maxAppsCreated) +
-			maxLocalSchema.MinBalance(&proto).Raw*uint64(maxAppsOptedIn))
-		fundingRequiredBalance += creationCost + optInCost + schemaCost
-		runningRequiredBalance += creationCost + optInCost + schemaCost
-	}
-	// add cost of transactions
-	fundingRequiredBalance += (cfg.MaxAmt + fee) * 2 * cfg.TxnPerSec * uint64(math.Ceil(cfg.RefreshTime.Seconds()))
+	// 	creationCost := uint64(cfg.NumApp) * proto.AppFlatParamsMinBalance * uint64(maxAppsCreated)
+	// 	optInCost := uint64(cfg.NumApp) * proto.AppFlatOptInMinBalance * uint64(maxAppsOptedIn)
+	// 	maxGlobalSchema := basics.StateSchema{NumUint: proto.MaxGlobalSchemaEntries, NumByteSlice: proto.MaxGlobalSchemaEntries}
+	// 	maxLocalSchema := basics.StateSchema{NumUint: proto.MaxLocalSchemaEntries, NumByteSlice: proto.MaxLocalSchemaEntries}
+	// 	schemaCost := uint64(cfg.NumApp) * (maxGlobalSchema.MinBalance(&proto).Raw*uint64(maxAppsCreated) +
+	// 		maxLocalSchema.MinBalance(&proto).Raw*uint64(maxAppsOptedIn))
+	// 	fundingRequiredBalance += creationCost + optInCost + schemaCost
+	// 	runningRequiredBalance += creationCost + optInCost + schemaCost
+	// }
+	// // add cost of transactions
+	// fundingRequiredBalance += (cfg.MaxAmt + fee) * 2 * cfg.TxnPerSec * uint64(math.Ceil(cfg.RefreshTime.Seconds()))
 
-	// override computed value if less than configured value
-	if cfg.MinAccountFunds > fundingRequiredBalance {
-		fundingRequiredBalance = cfg.MinAccountFunds
-	}
+	// // override computed value if less than configured value
+	// if cfg.MinAccountFunds > fundingRequiredBalance {
+	// 	fundingRequiredBalance = cfg.MinAccountFunds
+	// }
+
+	runningRequiredBalance = 100000
+	fundingRequiredBalance = 1000000
 
 	return
 }
@@ -295,18 +297,18 @@ func (pps *WorkerState) scheduleAction() bool {
 		}
 		pps.refreshPos = 0
 	}
-	addr := pps.refreshAddrs[pps.refreshPos]
-	ai, err := pps.client.AccountInformation(addr, true)
-	if err == nil {
-		ppa := pps.accounts[addr]
+	// addr := pps.refreshAddrs[pps.refreshPos]
+	// ai, err := pps.client.AccountInformation(addr, true)
+	// if err == nil {
+	// 	// ppa := pps.accounts[addr]
 
-		pps.integrateAccountInfo(addr, ppa, ai)
-	} else {
-		if !pps.cfg.Quiet {
-			fmt.Printf("background refresh err: %v\n", err)
-		}
-		return false
-	}
+	// 	// pps.integrateAccountInfo(addr, ppa, ai)
+	// } else {
+	// 	if !pps.cfg.Quiet {
+	// 		fmt.Printf("background refresh err: %v\n", err)
+	// 	}
+	// 	return false
+	// }
 	pps.refreshPos++
 	return true
 }
@@ -585,7 +587,7 @@ func (pps *WorkerState) RunPingPong(ctx context.Context, ac *libgoal.Client) {
 		pps.startTxLatency(ctx, ac)
 	}
 	pps.nextSendTime = time.Now()
-	ac.SetSuggestedParamsCacheAge(200 * time.Millisecond)
+	ac.SetSuggestedParamsCacheAge(10 * time.Second)
 	pps.client = ac
 
 	var runTime time.Duration
@@ -598,7 +600,7 @@ func (pps *WorkerState) RunPingPong(ctx context.Context, ac *libgoal.Client) {
 	if pps.cfg.MaxRuntime > 0 {
 		endTime = time.Now().Add(pps.cfg.MaxRuntime)
 	}
-	refreshTime := time.Now().Add(pps.cfg.RefreshTime)
+	// refreshTime := time.Now().Add(pps.cfg.RefreshTime)
 
 	lastLog := time.Now()
 	nextLog := lastLog.Add(logPeriod)
@@ -656,14 +658,14 @@ func (pps *WorkerState) RunPingPong(ctx context.Context, ac *libgoal.Client) {
 				pps.schedule(1)
 			}
 
-			if pps.cfg.RefreshTime > 0 && time.Now().After(refreshTime) {
-				err = pps.refreshAccounts(ac)
-				if err != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "error refreshing: %v\n", err)
-				}
+			// if pps.cfg.RefreshTime > 0 && time.Now().After(refreshTime) {
+			// 	err = pps.refreshAccounts(ac)
+			// 	if err != nil {
+			// 		_, _ = fmt.Fprintf(os.Stderr, "error refreshing: %v\n", err)
+			// 	}
 
-				refreshTime = refreshTime.Add(pps.cfg.RefreshTime)
-			}
+			// 	refreshTime = refreshTime.Add(pps.cfg.RefreshTime)
+			// }
 		}
 
 		timeDelta := time.Since(startTime)
@@ -985,7 +987,8 @@ weightdone:
 	// if pps.cfg.MaxFee == 0, automatically adjust the fee amount to required min fee
 	if pps.cfg.MaxFee == 0 {
 		var suggestedFee uint64
-		suggestedFee, err = client.SuggestedFee()
+		// suggestedFee, err = client.SuggestedFee()
+		suggestedFee = 3000
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stdout, "error retrieving suggestedFee: %v\n", err)
 			return

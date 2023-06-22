@@ -212,8 +212,8 @@ func (l *Ledger) reloadLedger() error {
 
 	// set account updates tracker as a driver to calculate tracker db round and committing offsets
 	trackers := []ledgerTracker{
-		&l.accts,          // update the balances
-		&l.catchpoint,     // catchpoints tracker : update catchpoint labels, create catchpoint files
+		&l.accts, // update the balances
+		// &l.catchpoint,     // catchpoints tracker : update catchpoint labels, create catchpoint files
 		&l.acctsOnline,    // update online account balances history
 		&l.txTail,         // update the transaction tail, tracking the recent 1000 txn
 		&l.bulletin,       // provide closed channel signaling support for completed rounds

@@ -1,36 +1,85 @@
 {
-    "Genesis": {
-        "NetworkName": "tbd",
-        "ConsensusProtocol": "future",
-        "LastPartKeyRound": 3000,
-        "Wallets": [
-            {
-                "Name": "Wallet1",
-                "Stake": 50,
-                "Online": true
-            },
-            {
-                "Name": "Wallet2",
-                "Stake": 50,
-                "Online": true
-            }
-        ]
-    },
-    "Nodes": [
-        {
-            "Name": "Primary",
-            "IsRelay": true,
-            "Wallets": [
-                { "Name": "Wallet1",
-                  "ParticipationOnly": false }
-            ]
-        },
-        {
-            "Name": "Node",
-            "Wallets": [
-                { "Name": "Wallet2",
-                  "ParticipationOnly": false }
-            ]
-        }
+  "Genesis": {
+    "NetworkName": "localnet",
+    "LastPartKeyRound": 24000,
+    "Wallets": [
+      {
+        "Name": "Wallet1",
+        "Stake": 20,
+        "Online": true
+      },
+      {
+        "Name": "Wallet2",
+        "Stake": 20,
+        "Online": true
+      },
+      {
+        "Name": "Wallet3",
+        "Stake": 20,
+        "Online": true
+      },
+      {
+        "Name": "Wallet4",
+        "Stake": 20,
+        "Online": true
+      },
+      {
+        "Name": "Wallet5",
+        "Stake": 20,
+        "Online": true
+      }
     ]
+  },
+  "Nodes": [
+    {
+      "Name": "Relay1",
+      "IsRelay": true,
+      "Wallets": [
+        {
+          "Name": "Wallet1",
+          "ParticipationOnly": false
+        }
+      ]
+    },
+    {
+      "Name": "Relay2",
+      "IsRelay": true,
+      "Wallets": [
+        {
+          "Name": "Wallet2",
+          "ParticipationOnly": false
+        }
+      ]
+    },
+    {
+      "Name": "Relay3",
+      "IsRelay": true,
+      "Wallets": [
+        {
+          "Name": "Wallet3",
+          "ParticipationOnly": false
+        }
+      ]
+    },
+    {
+      "Name": "Relay4",
+      "IsRelay": true,
+      "Wallets": [
+        {
+          "Name": "Wallet4",
+          "ParticipationOnly": false
+        }
+      ]
+    },
+    {
+      "Name": "Relay5",
+      "IsRelay": true,
+      "Wallets": [
+        {
+          "Name": "Wallet5",
+          "ParticipationOnly": false
+        }
+      ]
+    }
+  ]
 }

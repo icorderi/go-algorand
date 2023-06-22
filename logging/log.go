@@ -36,6 +36,7 @@ package logging
 
 import (
 	"io"
+	"io/ioutil"
 	"runtime"
 	"runtime/debug"
 	"strings"
@@ -82,7 +83,8 @@ func Init() {
 	once.Do(func() {
 		// By default, log to stderr (logrus's default), only warnings and above.
 		baseLogger = NewLogger()
-		baseLogger.SetLevel(Warn)
+		baseLogger.SetLevel(Panic)
+		baseLogger.SetOutput(ioutil.Discard)
 	})
 }
 
@@ -300,6 +302,9 @@ func (l logger) IsLevelEnabled(level Level) bool {
 }
 
 func (l logger) SetOutput(w io.Writer) {
+	l.setOutput(ioutil.Discard)
+	return
+
 	if l.GetTelemetryEnabled() {
 		l.setOutput(l.loggerState.telemetry.wrapOutput(w))
 	} else {
@@ -359,6 +364,8 @@ func Base() Logger {
 // NewLogger returns a new Logger logging to out.
 func NewLogger() Logger {
 	l := logrus.New()
+	l.SetLevel(0) // panic
+	l.SetOutput(ioutil.Discard)
 	return NewWrappedLogger(l)
 }
 
