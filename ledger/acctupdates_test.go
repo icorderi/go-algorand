@@ -2394,7 +2394,7 @@ func testAcctUpdatesLookupRetry(t *testing.T, assertFn func(au *accountUpdates, 
 
 	// prune the baseAccounts cache, so that lookup will fall through to the DB
 	au.accountsMu.Lock()
-	au.baseAccounts.prune(0)
+	au.baseAccounts.prune(0, true)
 	au.accountsMu.Unlock()
 
 	defer func() { // allow the postCommitUnlocked() handler to go through, even if test fails
@@ -2598,7 +2598,8 @@ func TestAcctUpdatesLookupLatestCacheRetry(t *testing.T) {
 	// simulate the following state
 	// 1. addr1 and in baseAccounts and its round is less than addr1's data in baseResources
 	// 2. au.cachedDBRound is less than actual DB round
-	delete(au.accounts, addr1)
+	bidx := au.baseAccounts.address_to_bucket(&addr1)
+	delete(au.accounts[bidx], addr1)
 	au.cachedDBRound--
 
 	pad, ok := au.baseAccounts.read(addr1)

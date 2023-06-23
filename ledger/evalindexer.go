@@ -79,7 +79,7 @@ type indexerLedgerConnector struct {
 	roundResources EvalForIndexerResources
 }
 
-func (l indexerLedgerConnector) FlushCaches() {}
+func (l indexerLedgerConnector) FlushCaches(hint *basics.Address) {}
 
 // BlockHdr is part of LedgerForEvaluator interface.
 func (l indexerLedgerConnector) BlockHdr(round basics.Round) (bookkeeping.BlockHeader, error) {

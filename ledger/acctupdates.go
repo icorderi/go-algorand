@@ -165,7 +165,7 @@ type accountUpdates struct {
 
 	// accounts stores the most recent account state for every
 	// address that appears in deltas.
-	accounts map[basics.Address]modifiedAccount
+	accounts []map[basics.Address]modifiedAccount
 
 	// resources stored the most recent resource state for every
 	// address&resource that appears in deltas.
@@ -296,8 +296,6 @@ func (au *accountUpdates) initialize(cfg config.Local) {
 	// log metrics
 	au.logAccountUpdatesMetrics = cfg.EnableAccountUpdatesStats
 	au.logAccountUpdatesInterval = cfg.AccountUpdatesStatsInterval
-
-	au.disableCache = cfg.DisableLedgerLRUCache
 }
 
 // loadFromDisk is the 2nd level initialization, and is required before the accountUpdates becomes functional
@@ -320,20 +318,23 @@ func (au *accountUpdates) close() {
 		au.accountsq.Close()
 		au.accountsq = nil
 	}
-	au.baseAccounts.prune(0)
+	au.baseAccounts.prune(0, false)
 	au.baseResources.prune(0)
 	au.baseKVs.prune(0)
 }
 
 // flushCaches flushes any pending data in caches so that it is fully available during future lookups.
-func (au *accountUpdates) flushCaches() {
-	au.accountsMu.Lock()
+func (au *accountUpdates) flushCaches(hint *basics.Address) {
+	au.baseAccounts.flushPendingWrites(hint, true)
 
-	au.baseAccounts.flushPendingWrites()
-	au.baseResources.flushPendingWrites()
-	au.baseKVs.flushPendingWrites()
-
-	au.accountsMu.Unlock()
+	// Hack to avoid locking if we just want to flush the accounts
+	// TODO: we need better control for flushing the caches
+	if hint == nil {
+		au.accountsMu.Lock()
+		au.baseResources.flushPendingWrites()
+		au.baseKVs.flushPendingWrites()
+		au.accountsMu.Unlock()
+	}
 }
 
 func (au *accountUpdates) LookupResource(rnd basics.Round, addr basics.Address, aidx basics.CreatableIndex, ctype basics.CreatableType) (ledgercore.AccountResource, basics.Round, error) {
@@ -770,12 +771,15 @@ func (au *accountUpdates) consecutiveVersion(offset uint64) uint64 {
 // which invokes the internal implementation after taking the lock.
 func (au *accountUpdates) newBlock(blk bookkeeping.Block, delta ledgercore.StateDelta) {
 	au.accountsMu.Lock()
+
 	au.newBlockImpl(blk, delta)
 
 	// gauge the number of round deltas kept in memory
 	ledgerDeltasInMemory.Set(uint64(len(au.deltas) + 1))
 
 	au.accountsMu.Unlock()
+
+	au.baseAccounts.Broadcast()
 	au.accountsReadCond.Broadcast()
 }
 
@@ -828,7 +832,7 @@ type accountUpdatesLedgerEvaluator struct {
 	prevHeader bookkeeping.BlockHeader
 }
 
-func (aul *accountUpdatesLedgerEvaluator) FlushCaches() {}
+func (aul *accountUpdatesLedgerEvaluator) FlushCaches(hint *basics.Address) {}
 
 // GenesisHash returns the genesis hash
 func (aul *accountUpdatesLedgerEvaluator) GenesisHash() crypto.Digest {
@@ -957,7 +961,7 @@ func (au *accountUpdates) initializeFromDisk(l ledgerForTracker, lastBalancesRou
 
 	au.versions = []protocol.ConsensusVersion{hdr.CurrentProtocol}
 	au.deltas = nil
-	au.accounts = make(map[basics.Address]modifiedAccount)
+	au.accounts = make([]map[basics.Address]modifiedAccount, au.baseAccounts.buckets())
 	au.resources = make(resourcesUpdates)
 	au.kvStore = make(map[string]modifiedKvValue)
 	au.creatables = make(map[basics.CreatableIndex]ledgercore.ModifiedCreatable)
@@ -972,6 +976,11 @@ func (au *accountUpdates) initializeFromDisk(l ledgerForTracker, lastBalancesRou
 		au.baseResources.init(au.log, 0, 1)
 		au.baseKVs.init(au.log, 0, 1)
 	}
+
+	for i := 0; i < au.baseAccounts.buckets(); i++ {
+		au.accounts[i] = make(map[basics.Address]modifiedAccount)
+	}
+
 	return nil
 }
 
@@ -992,16 +1001,21 @@ func (au *accountUpdates) newBlockImpl(blk bookkeeping.Block, delta ledgercore.S
 	au.versions = append(au.versions, blk.CurrentProtocol)
 	au.deltasAccum = append(au.deltasAccum, delta.Accts.Len()+au.deltasAccum[len(au.deltasAccum)-1])
 
-	au.baseAccounts.flushPendingWrites()
+	au.baseAccounts.flushPendingWrites(nil, true) // flush all buckets
 	au.baseResources.flushPendingWrites()
 	au.baseKVs.flushPendingWrites()
 
 	for i := 0; i < delta.Accts.Len(); i++ {
 		addr, data := delta.Accts.GetByIdx(i)
-		macct := au.accounts[addr]
+		bidx := au.baseAccounts.address_to_bucket(&addr)
+		au.baseAccounts.Lock(&addr)
+
+		macct := au.accounts[bidx][addr]
 		macct.ndeltas++
 		macct.data = data
-		au.accounts[addr] = macct
+		au.accounts[bidx][addr] = macct
+
+		au.baseAccounts.Unlock(&addr)
 	}
 	for _, res := range delta.Accts.GetAllAssetResources() {
 		key := accountCreatable{
@@ -1046,8 +1060,15 @@ func (au *accountUpdates) newBlockImpl(blk bookkeeping.Block, delta ledgercore.S
 	au.roundTotals = append(au.roundTotals, delta.Totals)
 
 	// calling prune would drop old entries from the base accounts.
-	newBaseAccountSize := (len(au.accounts) + 1) + baseAccountsPendingAccountsBufferSize
-	au.baseAccounts.prune(newBaseAccountSize)
+
+	maxAccountsInBucket := 0
+	for i := 0; i < au.baseAccounts.buckets(); i++ {
+		if maxAccountsInBucket < len(au.accounts[i]) {
+			maxAccountsInBucket = len(au.accounts[i])
+		}
+	}
+	newBaseAccountSize := maxAccountsInBucket + 1 + baseAccountsPendingAccountsBufferSize
+	au.baseAccounts.prune(newBaseAccountSize, true)
 	newBaseResourcesSize := (len(au.resources) + 1) + baseResourcesPendingAccountsBufferSize
 	au.baseResources.prune(newBaseResourcesSize)
 	newBaseKVSize := (len(au.kvStore) + 1) + baseKVPendingBufferSize
@@ -1059,11 +1080,11 @@ func (au *accountUpdates) newBlockImpl(blk bookkeeping.Block, delta ledgercore.S
 // Note that the function doesn't update the account with the rewards,
 // even while it does return the AccountData which represent the "rewarded" account data.
 func (au *accountUpdates) lookupLatest(addr basics.Address) (data basics.AccountData, rnd basics.Round, withoutRewards basics.MicroAlgos, err error) {
-	au.accountsMu.RLock()
+	au.baseAccounts.RLock(&addr)
 	needUnlock := true
 	defer func() {
 		if needUnlock {
-			au.accountsMu.RUnlock()
+			au.baseAccounts.RUnlock(&addr)
 		}
 	}()
 	var offset uint64
@@ -1170,7 +1191,8 @@ func (au *accountUpdates) lookupLatest(addr basics.Address) (data basics.Account
 		}
 
 		// check if we've had this address modified in the past rounds. ( i.e. if it's in the deltas )
-		if macct, has := au.accounts[addr]; has {
+		bidx := au.baseAccounts.address_to_bucket(&addr)
+		if macct, has := au.accounts[bidx][addr]; has {
 			// This is the most recent round, so we can
 			// use a cache of the most recent account state.
 			ad = macct.data
@@ -1211,7 +1233,7 @@ func (au *accountUpdates) lookupLatest(addr basics.Address) (data basics.Account
 				}
 			}
 		}
-		au.accountsMu.RUnlock()
+		au.baseAccounts.RUnlock(&addr)
 		needUnlock = false
 
 		if checkDone() {
@@ -1274,10 +1296,10 @@ func (au *accountUpdates) lookupLatest(addr basics.Address) (data basics.Account
 		}
 
 	tryAgain:
-		au.accountsMu.RLock()
+		au.baseAccounts.RLock(&addr)
 		needUnlock = true
 		for currentDbRound >= au.cachedDBRound && currentDeltaLen == len(au.deltas) {
-			au.accountsReadCond.Wait()
+			au.baseAccounts.Wait(&addr)
 		}
 	}
 }
@@ -1407,12 +1429,12 @@ func (au *accountUpdates) lookupStateDelta(rnd basics.Round) (ledgercore.StateDe
 func (au *accountUpdates) lookupWithoutRewards(rnd basics.Round, addr basics.Address, synchronized bool) (data ledgercore.AccountData, validThrough basics.Round, rewardsVersion protocol.ConsensusVersion, rewardsLevel uint64, err error) {
 	needUnlock := false
 	if synchronized {
-		au.accountsMu.RLock()
+		au.baseAccounts.RLock(&addr)
 		needUnlock = true
 	}
 	defer func() {
 		if needUnlock {
-			au.accountsMu.RUnlock()
+			au.baseAccounts.RUnlock(&addr)
 		}
 	}()
 	var offset uint64
@@ -1429,7 +1451,8 @@ func (au *accountUpdates) lookupWithoutRewards(rnd basics.Round, addr basics.Add
 		rewardsLevel = au.roundTotals[offset].RewardsLevel
 
 		// check if we've had this address modified in the past rounds. ( i.e. if it's in the deltas )
-		macct, indeltas := au.accounts[addr]
+		bidx := au.baseAccounts.address_to_bucket(&addr)
+		macct, indeltas := au.accounts[bidx][addr]
 		if indeltas {
 			// Check if this is the most recent round, in which case, we can
 			// use a cache of the most recent account state.
@@ -1471,7 +1494,7 @@ func (au *accountUpdates) lookupWithoutRewards(rnd basics.Round, addr basics.Add
 		}
 
 		if synchronized {
-			au.accountsMu.RUnlock()
+			au.baseAccounts.RUnlock(&addr)
 			needUnlock = false
 		}
 
@@ -1504,10 +1527,11 @@ func (au *accountUpdates) lookupWithoutRewards(rnd basics.Round, addr basics.Add
 				au.log.Errorf("accountUpdates.lookupWithoutRewards: database round %d is behind in-memory round %d", persistedData.Round, currentDbRound)
 				return ledgercore.AccountData{}, basics.Round(0), "", 0, &StaleDatabaseRoundError{databaseRound: persistedData.Round, memoryRound: currentDbRound}
 			}
-			au.accountsMu.RLock()
+			au.baseAccounts.RLock(&addr)
 			needUnlock = true
 			for currentDbRound >= au.cachedDBRound && currentDeltaLen == len(au.deltas) {
-				au.accountsReadCond.Wait()
+				// TODO: mmm - this is a bit of a hack. We should probably have a better way to wait for the database to catch up.
+				au.baseAccounts.Wait(&addr)
 			}
 		} else {
 			// in non-sync mode, we don't wait since we already assume that we're synchronized.
@@ -1745,7 +1769,12 @@ func (au *accountUpdates) postCommit(ctx context.Context, dcc *deferredCommitCon
 	for i := 0; i < dcc.compactAccountDeltas.len(); i++ {
 		acctUpdate := dcc.compactAccountDeltas.getByIdx(i)
 		cnt := acctUpdate.nAcctDeltas
-		macct, ok := au.accounts[acctUpdate.address]
+
+		// protect the au.accounts with the same lock as the baseAccounts
+		au.baseAccounts.Lock(&acctUpdate.address)
+
+		bidx := au.baseAccounts.address_to_bucket(&acctUpdate.address)
+		macct, ok := au.accounts[bidx][acctUpdate.address]
 		if !ok {
 			au.log.Panicf("inconsistency: flushed %d changes to %s, but not in au.accounts", cnt, acctUpdate.address)
 		}
@@ -1753,11 +1782,13 @@ func (au *accountUpdates) postCommit(ctx context.Context, dcc *deferredCommitCon
 		if cnt > macct.ndeltas {
 			au.log.Panicf("inconsistency: flushed %d changes to %s, but au.accounts had %d", cnt, acctUpdate.address, macct.ndeltas)
 		} else if cnt == macct.ndeltas {
-			delete(au.accounts, acctUpdate.address)
+			delete(au.accounts[bidx], acctUpdate.address)
 		} else {
 			macct.ndeltas -= cnt
-			au.accounts[acctUpdate.address] = macct
+			au.accounts[bidx][acctUpdate.address] = macct
 		}
+
+		au.baseAccounts.Unlock(&acctUpdate.address)
 	}
 
 	for i := 0; i < dcc.compactResourcesDeltas.len(); i++ {
@@ -1779,8 +1810,11 @@ func (au *accountUpdates) postCommit(ctx context.Context, dcc *deferredCommitCon
 		}
 	}
 
+	// update the cache with the persisted accounts
 	for _, persistedAcct := range dcc.updatedPersistedAccounts {
+		au.baseAccounts.Lock(&persistedAcct.Addr)
 		au.baseAccounts.write(persistedAcct)
+		au.baseAccounts.Unlock(&persistedAcct.Addr)
 	}
 
 	for addr, deltas := range dcc.updatedPersistedResources {
@@ -1856,6 +1890,7 @@ func (au *accountUpdates) postCommit(ctx context.Context, dcc *deferredCommitCon
 		dcc.stats.MemoryUpdatesDuration = time.Duration(time.Now().UnixNano()) - dcc.stats.MemoryUpdatesDuration
 	}
 
+	au.baseAccounts.Broadcast()
 	au.accountsReadCond.Broadcast()
 
 	// log telemetry event
@@ -1946,7 +1981,7 @@ func (au *accountUpdates) latest() basics.Round {
 func (au *accountUpdates) vacuumDatabase(ctx context.Context) (err error) {
 	// vaccumming the database would modify the some of the tables rowid, so we need to make sure any stored in-memory
 	// rowid are flushed.
-	au.baseAccounts.prune(0)
+	au.baseAccounts.prune(0, false)
 	au.baseResources.prune(0)
 	au.baseKVs.prune(0)
 

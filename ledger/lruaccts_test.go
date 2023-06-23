@@ -67,7 +67,7 @@ func TestLRUBasicAccounts(t *testing.T) {
 		require.Equal(t, trackerdb.PersistedAccountData{}, acct)
 	}
 
-	baseAcct.prune(accountsNum / 2)
+	baseAcct.prune(accountsNum/2, false)
 
 	// verify expected (missing/existing) entries
 	for i := 0; i < accountsNum*2; i++ {
@@ -109,7 +109,7 @@ func TestLRUAccountsDisable(t *testing.T) {
 		}(i)
 	}
 	require.Empty(t, baseAcct.pendingAccounts)
-	baseAcct.flushPendingWrites()
+	baseAcct.flushPendingWrites(nil, true)
 	require.Empty(t, baseAcct.accounts)
 
 	for i := 0; i < accountsNum; i++ {
@@ -145,7 +145,7 @@ func TestLRUAccountsPendingWrites(t *testing.T) {
 	}
 	testStarted := time.Now()
 	for {
-		baseAcct.flushPendingWrites()
+		baseAcct.flushPendingWrites(nil, true)
 		// check if all accounts were loaded into "main" cache.
 		allAccountsLoaded := true
 		for i := 0; i < accountsNum; i++ {
@@ -194,7 +194,7 @@ func TestLRUAccountsPendingWritesWarning(t *testing.T) {
 			}
 			baseAcct.writePending(acct)
 		}
-		baseAcct.flushPendingWrites()
+		baseAcct.flushPendingWrites(nil, true)
 		if j >= pendingWritesThreshold {
 			// expect a warning in the log
 			require.Equal(t, 1+j-pendingWritesThreshold, log.warnMsgCount)
@@ -221,7 +221,7 @@ func TestLRUAccountsOmittedPendingWrites(t *testing.T) {
 		baseAcct.writePending(acct)
 	}
 
-	baseAcct.flushPendingWrites()
+	baseAcct.flushPendingWrites(nil, true)
 
 	// verify that all these accounts are truly there.
 	for i := 0; i < pendingWritesBuffer; i++ {
@@ -264,7 +264,7 @@ func benchLruWrite(b *testing.B, fillerAccounts []trackerdb.PersistedAccountData
 		b.StartTimer()
 		fillLRUAccounts(baseAcct, accounts)
 		b.StopTimer()
-		baseAcct.prune(0)
+		baseAcct.prune(0, false)
 	}
 }
 

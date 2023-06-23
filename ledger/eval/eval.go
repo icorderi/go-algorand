@@ -48,7 +48,7 @@ type LedgerForCowBase interface {
 	LookupAsset(basics.Round, basics.Address, basics.AssetIndex) (ledgercore.AssetResource, error)
 	LookupApplication(basics.Round, basics.Address, basics.AppIndex) (ledgercore.AppResource, error)
 	LookupKv(basics.Round, string) ([]byte, error)
-	FlushCaches()
+	FlushCaches(hint *basics.Address)
 	GetCreatorForRound(basics.Round, basics.CreatableIndex, basics.CreatableType) (basics.Address, bool, error)
 	GetStateProofVerificationContext(stateProofLastAttestedRound basics.Round) (*ledgercore.StateProofVerificationContext, error)
 }
@@ -206,7 +206,7 @@ func (x *roundCowBase) prefetch(addr basics.Address) error {
 	}
 	if ad.CacheMiss {
 		// make the new data available immedietly
-		x.l.FlushCaches()
+		x.l.FlushCaches(&addr)
 		evalPrefetchMissAccounts.Inc(nil)
 	}
 	// TODO: consider adding a counter to when prefetch doesnt prefetch anything
@@ -633,7 +633,6 @@ type LedgerForEvaluator interface {
 	GenesisProto() config.ConsensusParams
 	LatestTotals() (basics.Round, ledgercore.AccountTotals, error)
 	VotersForStateProof(basics.Round) (*ledgercore.VotersForRound, error)
-	FlushCaches()
 }
 
 // EvaluatorOptions defines the evaluator creation options
@@ -1606,7 +1605,7 @@ func Eval(ctx context.Context, l LedgerForEvaluator, blk bookkeeping.Block, vali
 	}()
 
 	// flush the pending writes in the cache to make everything read so far available during eval
-	l.FlushCaches()
+	l.FlushCaches(nil)
 
 	eval, err := StartEvaluator(l, blk.BlockHeader,
 		EvaluatorOptions{

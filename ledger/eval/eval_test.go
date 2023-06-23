@@ -800,7 +800,7 @@ func (ledger *evalTestLedger) StartEvaluator(hdr bookkeeping.BlockHeader, payset
 		})
 }
 
-func (ledger *evalTestLedger) FlushCaches() {}
+func (ledger *evalTestLedger) FlushCaches(hint *basics.Address) {}
 
 // GetCreatorForRound takes a CreatableIndex and a CreatableType and tries to
 // look up a creator address, setting ok to false if the query succeeded but no
@@ -1065,7 +1065,7 @@ func (l *testCowBaseLedger) LookupKv(rnd basics.Round, key string) ([]byte, erro
 	return nil, errors.New("not implemented")
 }
 
-func (l *testCowBaseLedger) FlushCaches() {}
+func (l *testCowBaseLedger) FlushCaches(hint *basics.Address) {}
 
 func (l *testCowBaseLedger) GetStateProofVerificationContext(_ basics.Round) (*ledgercore.StateProofVerificationContext, error) {
 	return nil, errors.New("testCowBaseLedger does not implement GetStateProofVerificationContext")
