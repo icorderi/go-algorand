@@ -529,9 +529,6 @@ func (l *Ledger) ListApplications(maxAppIdx basics.AppIndex, maxResults uint64) 
 // resources) for a given address, for the latest round. The returned account values
 // reflect the changes of all blocks up to and including the returned round number.
 func (l *Ledger) LookupLatest(addr basics.Address) (basics.AccountData, basics.Round, basics.MicroAlgos, error) {
-	l.trackerMu.RLock()
-	defer l.trackerMu.RUnlock()
-
 	// Intentionally apply (pending) rewards up to rnd.
 	data, rnd, withoutRewards, err := l.accts.lookupLatest(addr)
 	if err != nil {
@@ -621,9 +618,6 @@ func (l *Ledger) LookupAgreement(rnd basics.Round, addr basics.Address) (basics.
 // LookupWithoutRewards is like Lookup but does not apply pending rewards up
 // to the requested round rnd.
 func (l *Ledger) LookupWithoutRewards(rnd basics.Round, addr basics.Address) (ledgercore.AccountData, basics.Round, error) {
-	l.trackerMu.RLock()
-	defer l.trackerMu.RUnlock()
-
 	var result ledgercore.AccountData
 
 	result, validThrough, err := l.accts.LookupWithoutRewards(rnd, addr)
