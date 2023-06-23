@@ -186,6 +186,8 @@ func MakeFull(log logging.Logger, rootDir string, cfg config.Local, phonebookAdd
 	node.devMode = genesis.DevMode
 	node.config = cfg
 
+	registerSignals(rootDir, &cfg)
+
 	// tie network, block fetcher, and agreement services together
 	p2pNode, err := network.NewWebsocketNetwork(node.log, node.config, phonebookAddresses, genesis.ID(), genesis.Network, node)
 	if err != nil {
