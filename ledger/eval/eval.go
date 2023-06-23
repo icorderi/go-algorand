@@ -199,20 +199,6 @@ func (x *roundCowBase) lookup(addr basics.Address) (ledgercore.AccountData, erro
 	return ad, err
 }
 
-func (x *roundCowBase) prefetch(addr basics.Address) error {
-	ad, _, err := x.l.LookupWithoutRewards(x.rnd, addr)
-	if err != nil {
-		return err
-	}
-	if ad.CacheMiss {
-		// make the new data available immedietly
-		x.l.FlushCaches(&addr)
-		evalPrefetchMissAccounts.Inc(nil)
-	}
-	// TODO: consider adding a counter to when prefetch doesnt prefetch anything
-	return nil
-}
-
 func (x *roundCowBase) updateAssetResourceCache(aa ledgercore.AccountAsset, r ledgercore.AssetResource) {
 	// cache AssetParams and AssetHolding returned by LookupResource
 	if r.AssetParams == nil {
@@ -947,33 +933,34 @@ func (eval *BlockEvaluator) TestTransaction(txn transactions.SignedTxn) error {
 
 // PrefetchTransactionGroup loads all related data needed by the transactions in the group
 func (eval *BlockEvaluator) PrefetchTransactionGroup(txgroup []transactions.SignedTxnWithAD) {
-	// Note: some racing has been seen
-	// eval.state.child(..)  was caused a nil pointer reference
-	if eval == nil {
-		return
-	}
-	state := eval.state
-	if state == nil {
-		return
-	}
-
-	cow := state.child(len(txgroup))
-	defer cow.recycle()
-
 	for i := range txgroup {
 		txn := txgroup[i].Txn
 		// fetch sender
-		cow.prefetch(txn.Sender)
+		eval.prefetchAccount(txn.Sender)
 
 		switch txn.Type {
 		case protocol.PaymentTx:
-			cow.prefetch(txn.Receiver)
-			cow.prefetch(txn.CloseRemainderTo)
+			eval.prefetchAccount(txn.Receiver)
+			eval.prefetchAccount(txn.CloseRemainderTo)
 		// TODO: write the rest
 		default:
 			// unknown txn type, lets not error here
 		}
 	}
+}
+
+func (eval *BlockEvaluator) prefetchAccount(addr basics.Address) error {
+	ad, _, err := eval.l.LookupWithoutRewards(eval.Round(), addr)
+	if err != nil {
+		return err
+	}
+	if ad.CacheMiss {
+		// make the new data available immedietly
+		eval.l.FlushCaches(&addr)
+		evalPrefetchMissAccounts.Inc(nil)
+	}
+	// TODO: consider adding a counter to when prefetch doesnt prefetch anything
+	return nil
 }
 
 // Transaction tentatively adds a new transaction as part of this block evaluation.
