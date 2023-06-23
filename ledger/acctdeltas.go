@@ -450,9 +450,9 @@ func makeCompactAccountDeltas(stateDeltas []ledgercore.StateDelta, baseRound bas
 					address: addr,
 				}
 				newEntry.newAcct.SetCoreAccountData(&acctDelta)
-				// baseAccounts.RLock(&addr)
+				baseAccounts.RLock(&addr)
 				baseAccountData, has := baseAccounts.read(addr)
-				// baseAccounts.RUnlock(&addr)
+				baseAccounts.RUnlock(&addr)
 				if has {
 					newEntry.oldAcct = baseAccountData
 					outAccountDeltas.insert(newEntry) // insert instead of upsert economizes one map lookup

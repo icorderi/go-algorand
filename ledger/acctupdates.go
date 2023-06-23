@@ -1008,14 +1008,14 @@ func (au *accountUpdates) newBlockImpl(blk bookkeeping.Block, delta ledgercore.S
 	for i := 0; i < delta.Accts.Len(); i++ {
 		addr, data := delta.Accts.GetByIdx(i)
 		bidx := au.baseAccounts.address_to_bucket(&addr)
-		// au.baseAccounts.Lock(&addr)
+		au.baseAccounts.Lock(&addr)
 
 		macct := au.accounts[bidx][addr]
 		macct.ndeltas++
 		macct.data = data
 		au.accounts[bidx][addr] = macct
 
-		// au.baseAccounts.Unlock(&addr)
+		au.baseAccounts.Unlock(&addr)
 	}
 	for _, res := range delta.Accts.GetAllAssetResources() {
 		key := accountCreatable{
@@ -1771,7 +1771,7 @@ func (au *accountUpdates) postCommit(ctx context.Context, dcc *deferredCommitCon
 		cnt := acctUpdate.nAcctDeltas
 
 		// protect the au.accounts with the same lock as the baseAccounts
-		// au.baseAccounts.Lock(&acctUpdate.address)
+		au.baseAccounts.Lock(&acctUpdate.address)
 
 		bidx := au.baseAccounts.address_to_bucket(&acctUpdate.address)
 		macct, ok := au.accounts[bidx][acctUpdate.address]
@@ -1788,7 +1788,7 @@ func (au *accountUpdates) postCommit(ctx context.Context, dcc *deferredCommitCon
 			au.accounts[bidx][acctUpdate.address] = macct
 		}
 
-		// au.baseAccounts.Unlock(&acctUpdate.address)
+		au.baseAccounts.Unlock(&acctUpdate.address)
 	}
 
 	for i := 0; i < dcc.compactResourcesDeltas.len(); i++ {
@@ -1812,9 +1812,9 @@ func (au *accountUpdates) postCommit(ctx context.Context, dcc *deferredCommitCon
 
 	// update the cache with the persisted accounts
 	for _, persistedAcct := range dcc.updatedPersistedAccounts {
-		// au.baseAccounts.Lock(&persistedAcct.Addr)
+		au.baseAccounts.Lock(&persistedAcct.Addr)
 		au.baseAccounts.write(persistedAcct)
-		// au.baseAccounts.Unlock(&persistedAcct.Addr)
+		au.baseAccounts.Unlock(&persistedAcct.Addr)
 	}
 
 	for addr, deltas := range dcc.updatedPersistedResources {
