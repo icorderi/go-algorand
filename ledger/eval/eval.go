@@ -947,7 +947,17 @@ func (eval *BlockEvaluator) TestTransaction(txn transactions.SignedTxn) error {
 
 // PrefetchTransactionGroup loads all related data needed by the transactions in the group
 func (eval *BlockEvaluator) PrefetchTransactionGroup(txgroup []transactions.SignedTxnWithAD) {
-	cow := eval.state.child(len(txgroup))
+	// Note: some racing has been seen
+	// eval.state.child(..)  was caused a nil pointer reference
+	if eval == nil {
+		return
+	}
+	state := eval.state
+	if state == nil {
+		return
+	}
+
+	cow := state.child(len(txgroup))
 	defer cow.recycle()
 
 	for i := range txgroup {
