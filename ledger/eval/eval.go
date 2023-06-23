@@ -950,7 +950,8 @@ func (eval *BlockEvaluator) PrefetchTransactionGroup(txgroup []transactions.Sign
 }
 
 func (eval *BlockEvaluator) prefetchAccount(addr basics.Address) error {
-	ad, _, err := eval.l.LookupWithoutRewards(eval.Round(), addr)
+	// Note: we are prefetching, so whatever we read has to be up to the last compelted round
+	ad, _, err := eval.l.LookupWithoutRewards(eval.Round()-1, addr)
 	if err != nil {
 		return err
 	}
