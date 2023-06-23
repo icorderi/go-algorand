@@ -17,8 +17,6 @@
 package ledger
 
 import (
-	"sync"
-
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/store/trackerdb"
 	"github.com/algorand/go-algorand/logging"
@@ -29,8 +27,7 @@ import (
 // It doesn't have any synchronization primitive on its own and require to be
 // synchronized by the caller.
 type lruAccounts struct {
-	mus      []deadlock.RWMutex
-	readCond []*sync.Cond
+	mus []deadlock.RWMutex
 
 	// accountsList contain the list of persistedAccountData, where the front ones are the most "fresh"
 	// and the ones on the back are the oldest.
@@ -66,7 +63,6 @@ func (m *lruAccounts) init(log logging.Logger, pendingWrites int, pendingWritesW
 
 	if pendingWrites > 0 {
 		m.mus = make([]deadlock.RWMutex, buckets)
-		m.readCond = make([]*sync.Cond, buckets)
 		m.accountsList = make([]*persistedAccountDataList, buckets)
 		m.accounts = make([]map[basics.Address]*persistedAccountDataListNode, buckets)
 		m.pendingAccounts = make([]chan trackerdb.PersistedAccountData, buckets)
@@ -74,7 +70,6 @@ func (m *lruAccounts) init(log logging.Logger, pendingWrites int, pendingWritesW
 		m.pendingNotFound = make([]chan basics.Address, buckets)
 
 		for i := 0; i < buckets; i++ {
-			m.readCond[i] = sync.NewCond(m.mus[i].RLocker())
 			m.accountsList[i] = newPersistedAccountList().allocateFreeNodes(pendingWrites)
 			m.accounts[i] = make(map[basics.Address]*persistedAccountDataListNode, pendingWrites)
 			m.pendingAccounts[i] = make(chan trackerdb.PersistedAccountData, pendingWrites)
@@ -97,17 +92,6 @@ func (m *lruAccounts) address_to_bucket(addr *basics.Address) int {
 	// we should grab some hash of the address to avoid addresses with similar prefixes to end up in the same bucket
 	// Note: this only works up to 256 buckets
 	return int(addr[21]) % buckets
-}
-
-func (m *lruAccounts) Wait(addr *basics.Address) {
-	i := m.address_to_bucket(addr)
-	m.readCond[i].Wait()
-}
-
-func (m *lruAccounts) Broadcast() {
-	for i := 0; i < buckets; i++ {
-		m.readCond[i].Broadcast()
-	}
 }
 
 func (m *lruAccounts) Lock(addr *basics.Address) {

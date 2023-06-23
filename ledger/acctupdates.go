@@ -779,7 +779,6 @@ func (au *accountUpdates) newBlock(blk bookkeeping.Block, delta ledgercore.State
 
 	au.accountsMu.Unlock()
 
-	au.baseAccounts.Broadcast()
 	au.accountsReadCond.Broadcast()
 }
 
@@ -1296,11 +1295,15 @@ func (au *accountUpdates) lookupLatest(addr basics.Address) (data basics.Account
 		}
 
 	tryAgain:
+		au.accountsMu.RLock()
+		for currentDbRound >= au.cachedDBRound && currentDeltaLen == len(au.deltas) {
+			au.accountsReadCond.Wait()
+		}
+		au.accountsMu.RUnlock()
+
+		// lock again for the next loop
 		au.baseAccounts.RLock(&addr)
 		needUnlock = true
-		for currentDbRound >= au.cachedDBRound && currentDeltaLen == len(au.deltas) {
-			au.baseAccounts.Wait(&addr)
-		}
 	}
 }
 
@@ -1527,12 +1530,16 @@ func (au *accountUpdates) lookupWithoutRewards(rnd basics.Round, addr basics.Add
 				au.log.Errorf("accountUpdates.lookupWithoutRewards: database round %d is behind in-memory round %d", persistedData.Round, currentDbRound)
 				return ledgercore.AccountData{}, basics.Round(0), "", 0, &StaleDatabaseRoundError{databaseRound: persistedData.Round, memoryRound: currentDbRound}
 			}
+
+			au.accountsMu.RLock()
+			for currentDbRound >= au.cachedDBRound && currentDeltaLen == len(au.deltas) {
+				au.accountsReadCond.Wait()
+			}
+			au.accountsMu.RUnlock()
+
+			// lock again for the next loop
 			au.baseAccounts.RLock(&addr)
 			needUnlock = true
-			for currentDbRound >= au.cachedDBRound && currentDeltaLen == len(au.deltas) {
-				// TODO: mmm - this is a bit of a hack. We should probably have a better way to wait for the database to catch up.
-				au.baseAccounts.Wait(&addr)
-			}
 		} else {
 			// in non-sync mode, we don't wait since we already assume that we're synchronized.
 			au.log.Errorf("accountUpdates.lookupWithoutRewards: database round %d mismatching in-memory round %d", persistedData.Round, currentDbRound)
@@ -1890,7 +1897,6 @@ func (au *accountUpdates) postCommit(ctx context.Context, dcc *deferredCommitCon
 		dcc.stats.MemoryUpdatesDuration = time.Duration(time.Now().UnixNano()) - dcc.stats.MemoryUpdatesDuration
 	}
 
-	au.baseAccounts.Broadcast()
 	au.accountsReadCond.Broadcast()
 
 	// log telemetry event
