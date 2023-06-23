@@ -22,6 +22,7 @@ import (
 
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/util/db"
+	"github.com/algorand/go-algorand/util/metrics"
 )
 
 // Store is the interface for the tracker db.
@@ -149,3 +150,5 @@ type SnapshotFn func(ctx context.Context, tx SnapshotScope) error
 
 // TransactionFn is the callback lambda used in `Transaction`.
 type TransactionFn func(ctx context.Context, tx TransactionScope) error
+
+var StorageCommitDurationMicros = metrics.NewCounter("storage_commit_duration_micros", "µs spent")

@@ -431,6 +431,8 @@ func (bs batchScope) ResetTransactionWarnDeadline(ctx context.Context, deadline 
 }
 
 func (bs batchScope) Commit() error {
+	start := time.Now()
+	defer trackerdb.StorageCommitDurationMicros.AddMicrosecondsSince(start, nil)
 	return bs.wb.Commit(bs.wo)
 }
 
@@ -505,6 +507,8 @@ func (txs transactionScope) ResetTransactionWarnDeadline(ctx context.Context, de
 }
 
 func (txs transactionScope) Commit() error {
+	start := time.Now()
+	defer trackerdb.StorageCommitDurationMicros.AddMicrosecondsSince(start, nil)
 	return txs.wb.Commit(txs.wo)
 }
 
