@@ -1885,18 +1885,19 @@ func (au *accountUpdates) postCommit(ctx context.Context, dcc *deferredCommitCon
 	au.roundTotals = au.roundTotals[offset:]
 	au.cachedDBRound = newBase
 
+	au.accountsMu.Unlock()
+
 	// update the deltas metrics
 	ledgerDeltasInMemory.Set(uint64(len(au.deltas)))
 	// Note: technically we wrote it during `commitRound`
 	//       this might make the number missreport total disk deltas written if transactions fail
 	ledgerDeltasCommited.AddUint64(offset, nil)
 
-	au.accountsMu.Unlock()
-
 	if dcc.updateStats {
 		dcc.stats.MemoryUpdatesDuration = time.Duration(time.Now().UnixNano()) - dcc.stats.MemoryUpdatesDuration
 	}
 
+	// signal commit round is complete
 	au.accountsReadCond.Broadcast()
 
 	// log telemetry event
