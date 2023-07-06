@@ -35,6 +35,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 
 	"github.com/algorand/go-algorand/logging"
+	"github.com/algorand/go-algorand/util/metrics"
 )
 
 /* database utils */
@@ -212,13 +213,13 @@ func (db *Accessor) IsSharedCacheConnection() bool {
 // The return error of fn should be a native sqlite3.Error type or an error wrapping it.
 // DO NOT return a custom error - the internal logic of Atomic expects an sqlite error and uses that value.
 func (db *Accessor) Atomic(fn idemFn, extras ...interface{}) (err error) {
-	return db.AtomicContext(context.Background(), fn, extras...)
+	return db.AtomicContext(context.Background(), nil, fn, extras...)
 }
 
 // AtomicContext executes a piece of code with respect to the database atomically.
 // For transactions where readOnly is false, sync determines whether or not to wait for the result.
 // Like for Atomic, the return error of fn should be a native sqlite3.Error type or an error wrapping it.
-func (db *Accessor) AtomicContext(ctx context.Context, fn idemFn, extras ...interface{}) (err error) {
+func (db *Accessor) AtomicContext(ctx context.Context, commitMetric *metrics.Counter, fn idemFn, extras ...interface{}) (err error) {
 	atomicDeadline := time.Now().Add(time.Second)
 
 	// note that the sql library will drop panics inside an active transaction
@@ -300,7 +301,11 @@ func (db *Accessor) AtomicContext(ctx context.Context, fn idemFn, extras ...inte
 			}
 		}
 
+		start := time.Now()
 		err = tx.Commit()
+		if commitMetric != nil {
+			commitMetric.AddMicrosecondsSince(start, nil)
+		}
 		if err == nil {
 			// update the deadline, as it might have been updated.
 			atomicDeadline = txContextData.deadline

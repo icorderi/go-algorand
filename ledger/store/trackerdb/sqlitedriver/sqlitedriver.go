@@ -66,7 +66,7 @@ func (s *trackerSQLStore) Batch(fn trackerdb.BatchFn) (err error) {
 }
 
 func (s *trackerSQLStore) BatchContext(ctx context.Context, fn trackerdb.BatchFn) (err error) {
-	return s.pair.Wdb.AtomicContext(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	return s.pair.Wdb.AtomicContext(ctx, trackerdb.StorageCommitDurationMicros, func(ctx context.Context, tx *sql.Tx) error {
 		return fn(ctx, &sqlBatchScope{tx, false, &sqlWriter{tx}})
 	})
 }
@@ -84,7 +84,7 @@ func (s *trackerSQLStore) Snapshot(fn trackerdb.SnapshotFn) (err error) {
 }
 
 func (s *trackerSQLStore) SnapshotContext(ctx context.Context, fn trackerdb.SnapshotFn) (err error) {
-	return s.pair.Rdb.AtomicContext(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	return s.pair.Rdb.AtomicContext(ctx, nil, func(ctx context.Context, tx *sql.Tx) error {
 		return fn(ctx, sqlSnapshotScope{tx, &sqlReader{tx}})
 	})
 }
@@ -102,7 +102,7 @@ func (s *trackerSQLStore) Transaction(fn trackerdb.TransactionFn) (err error) {
 }
 
 func (s *trackerSQLStore) TransactionContext(ctx context.Context, fn trackerdb.TransactionFn) (err error) {
-	return s.pair.Wdb.AtomicContext(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	return s.pair.Wdb.AtomicContext(ctx, trackerdb.StorageCommitDurationMicros, func(ctx context.Context, tx *sql.Tx) error {
 		return fn(ctx, &sqlTransactionScope{tx, false, &sqlReader{tx}, &sqlWriter{tx}, &sqlCatchpoint{tx}})
 	})
 }
@@ -116,7 +116,7 @@ func (s *trackerSQLStore) BeginTransaction(ctx context.Context) (trackerdb.Trans
 }
 
 func (s trackerSQLStore) RunMigrations(ctx context.Context, params trackerdb.Params, log logging.Logger, targetVersion int32) (mgr trackerdb.InitParams, err error) {
-	err = s.pair.Wdb.AtomicContext(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = s.pair.Wdb.AtomicContext(ctx, nil, func(ctx context.Context, tx *sql.Tx) error {
 		mgr, err = RunMigrations(ctx, tx, params, log, targetVersion)
 		return err
 	})
@@ -138,7 +138,7 @@ func (s *trackerSQLStore) ResetToV6Test(ctx context.Context) error {
 		`DROP TABLE IF EXISTS catchpointfirststageinfo`,
 	}
 
-	return s.pair.Wdb.AtomicContext(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	return s.pair.Wdb.AtomicContext(ctx, nil, func(ctx context.Context, tx *sql.Tx) error {
 		for _, stmt := range resetExprs {
 			_, err := tx.ExecContext(ctx, stmt)
 			if err != nil {
@@ -330,6 +330,8 @@ func (txs *sqlTransactionScope) Close() error {
 }
 
 func (txs *sqlTransactionScope) Commit() error {
+	start := time.Now()
+	defer trackerdb.StorageCommitDurationMicros.AddMicrosecondsSince(start, nil)
 	err := txs.tx.Commit()
 	if err != nil {
 		return err
